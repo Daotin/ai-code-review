@@ -4,4 +4,4 @@ const commitHistory = await getCommitHistory();
 console.log(commitHistory);
 
 const commitDiff = await getCommitDiff([commitHistory.hash]);
-console.log(commitDiff);
+console.log('commitDiff==>', commitDiff);
