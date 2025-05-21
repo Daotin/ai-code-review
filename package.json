@@ -6,8 +6,7 @@
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "ai-cr": "./dist/index.js",
-    "@fe-ai-demo/ai-code-review": "./dist/index.js"
+    "ai-cr": "dist/index.js"
   },
   "files": [
     "dist"
