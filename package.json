@@ -2,7 +2,7 @@
   "name": "@fe-ai-demo/ai-code-review",
   "description": "AI 代码审查工具",
   "author": "Daotin",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
