@@ -1,11 +1,10 @@
-#!/usr/bin/env node
-
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { execSync } from 'child_process';
 import fetch from 'node-fetch';
+import os from 'os';
 import config from './review.config.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -22,6 +21,33 @@ const colors = {
   cyan: '\x1b[36m',
   bold: '\x1b[1m',
 };
+
+/**
+ * 设置API Key到配置文件
+ * @param {string} apiKey 要设置的API Key
+ */
+function setApiKey(apiKey) {
+  try {
+    const configPath = path.join(os.homedir(), '.ai-cr-config.json');
+    let config = {};
+
+    // 如果配置文件已存在，读取现有配置
+    if (fs.existsSync(configPath)) {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    }
+
+    // 更新API Key
+    config.apiKey = apiKey;
+
+    // 写入配置文件
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+    console.log(`${colors.green}✓ 成功: ${colors.reset}API Key已保存到 ${configPath}`);
+    return true;
+  } catch (error) {
+    console.error(`${colors.red}错误: ${colors.reset}保存API Key失败:`, error.message);
+    return false;
+  }
+}
 
 /**
  * 读取.gitignore文件并解析忽略规则
@@ -542,7 +568,51 @@ function displayResults(analysisResult, aiSummary) {
  * 主函数
  */
 async function main() {
+  // 处理命令行参数
+  const args = process.argv.slice(2);
+  if (args.length > 0) {
+    // 设置API Key
+    if (args[0] === '--set-key' || args[0] === '-k') {
+      const apiKey = args[1];
+      if (!apiKey) {
+        console.error(`${colors.red}错误: ${colors.reset}请提供API Key`);
+        console.log(`用法: ai-cr --set-key YOUR_API_KEY`);
+        process.exit(1);
+      }
+
+      const success = setApiKey(apiKey);
+      if (success) {
+        console.log(`${colors.green}API Key设置成功。${colors.reset}您现在可以直接运行 ai-cr 命令了。`);
+      }
+      process.exit(success ? 0 : 1);
+    }
+
+    // 显示帮助信息
+    if (args[0] === '--help' || args[0] === '-h') {
+      console.log(`
+${colors.bold}AI 代码审查工具${colors.reset}
+
+使用方法:
+  ai-cr                   运行代码审查
+  ai-cr --set-key KEY     设置API Key
+  ai-cr --help            显示帮助信息
+
+示例:
+  ai-cr --set-key sk-xxxxxxxxxxxx     设置OpenRouter API Key
+  ai-cr                               审查当前Git仓库的代码变更
+      `);
+      process.exit(0);
+    }
+  }
+
   console.log(`\n${'='.repeat(40)}`, '🚀 开始代码审查...', '='.repeat(40));
+
+  // 检查API Key是否已设置
+  if (!config.openRouter.apiKey) {
+    console.error(`${colors.red}❌ 错误: ${colors.reset}未设置API Key，请先运行以下命令设置:`);
+    console.log(`ai-cr --set-key YOUR_API_KEY`);
+    process.exit(1);
+  }
 
   const vcs = detectVCS();
   if (!vcs) {
@@ -558,10 +628,10 @@ async function main() {
 
   const analysisResult = analyzeDiff(diff);
   const prompt = buildPrompt(analysisResult);
-  // TODO: 调用OpenRouter API
-  // const aiSummary = await callOpenRouter(prompt);
+  // 调用OpenRouter API
+  const aiSummary = await callOpenRouter(prompt);
 
-  displayResults(analysisResult, 'AI摘要功能已禁用');
+  displayResults(analysisResult, aiSummary);
 
   // 非阻塞退出
   process.exit(0);

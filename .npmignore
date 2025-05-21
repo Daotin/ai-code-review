@@ -1,0 +1,8 @@
+.git
+.gitignore
+node_modules
+src
+demo
+docs
+rollup.config.js
+.npmignore 

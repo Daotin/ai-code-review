@@ -1,4 +1,21 @@
 // 代码审查工具配置
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+
+// 获取API Key
+function getApiKey() {
+  try {
+    const configPath = path.join(os.homedir(), '.ai-cr-config.json');
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      return config.apiKey || '';
+    }
+  } catch (error) {
+    console.error('读取配置文件失败:', error.message);
+  }
+  return '';
+}
 
 export default {
   // 需要提取的注释标记
@@ -62,6 +79,6 @@ export default {
   openRouter: {
     model: 'deepseek/deepseek-chat-v3-0324:free',
     // model: 'qwen/qwen3-235b-a22b:free',
-    apiKey: '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',
+    apiKey: getApiKey(),
   },
 };
