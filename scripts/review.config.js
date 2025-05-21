@@ -11,10 +11,10 @@ export default {
 
   // 环境相关问题检测规则
   environmentChecks: [
-    { pattern: /(console\.log\(|alert\(|debugger;)/g, message: '可能存在调试代码' },
-    { pattern: /localhost|127\.0\.0\.1|0\.0\.0\.0/g, message: '发现本地主机地址' },
-    { pattern: /api-test|test-api|dev-api|staging-api/g, message: '发现测试API端点' },
-    { pattern: /test_token|test_key|test_password|test_secret/g, message: '可能存在测试凭证' },
+    // { pattern: /(console\.log\(|alert\(|debugger;)/g, message: '可能存在调试代码' },
+    // { pattern: /localhost|127\.0\.0\.1|0\.0\.0\.0/g, message: '发现localhost地址' },
+    // { pattern: /api-test|test-api|dev-api|staging-api/g, message: '发现测试API端点' },
+    // { pattern: /test_token|test_key|test_password|test_secret/g, message: '可能存在测试凭证' },
   ],
 
   // 业务数据敏感模式 - 全面收集所有可能的敏感数据
@@ -56,7 +56,7 @@ export default {
   },
 
   // 忽略检查的路径
-  ignoredPaths: ['tests/', 'mocks/', 'node_modules/'],
+  ignoredPaths: ['tests/', 'mocks/', 'node_modules/', 'package.json', 'package-lock.json'],
 
   // OpenRouter API设置
   openRouter: {

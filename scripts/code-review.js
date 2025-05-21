@@ -108,21 +108,18 @@ function getVCSDiff(vcs) {
   try {
     if (vcs === 'git') {
       try {
-        // // 首先尝试获取已暂存的变更
-        // let stagedDiff = execSync('git diff --cached --unified=0', { encoding: 'utf8' });
+        console.log(`${colors.blue}信息: ${colors.reset}检查工作目录变更...`);
+        let workingDiff = execSync('git diff HEAD', { encoding: 'utf8' });
 
-        // // 如果有已暂存变更，返回
-        // if (stagedDiff && stagedDiff.trim() !== '') {
-        //   return stagedDiff;
-        // }
+        // 获取已暂存的更改
+        let stagedDiff = execSync('git diff --cached', { encoding: 'utf8' });
 
-        // 尝试获取工作目录的变更
-        console.log(`${colors.blue}信息: ${colors.reset}没有已暂存的变更，检查工作目录变更...`);
-        let workingDiff = execSync('git diff HEAD --unified=0', { encoding: 'utf8' });
+        // 合并两种更改
+        let combinedDiff = workingDiff + stagedDiff;
 
-        // 如果有工作目录变更，返回
-        if (workingDiff && workingDiff.trim() !== '') {
-          return workingDiff;
+        // 如果有任何变更，返回
+        if (combinedDiff && combinedDiff.trim() !== '') {
+          return combinedDiff;
         }
       } catch (gitError) {
         // Git命令可能失败，尝试获取本地文件变更
@@ -136,6 +133,83 @@ function getVCSDiff(vcs) {
     console.error(`${colors.red}错误: ${colors.reset}获取变更失败:`, error.stderr || error.message);
     return '';
   }
+}
+
+/**
+ * 从diff中过滤掉应该被忽略的文件
+ * @param {string} diff diff内容
+ * @param {string[]} gitignoreRules gitignore规则
+ * @returns {string} 过滤后的diff
+ */
+function filterIgnoredFiles(diff, gitignoreRules) {
+  if (!diff || diff.trim() === '') {
+    return diff;
+  }
+
+  // 解析diff为文件块
+  const diffBlocks = [];
+  let currentBlock = [];
+  let currentFile = null;
+
+  // 按行分割diff
+  const lines = diff.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // 检测新文件头
+    if (line.startsWith('diff --git')) {
+      // 保存之前的块
+      if (currentBlock.length > 0 && currentFile) {
+        diffBlocks.push({
+          file: currentFile,
+          content: currentBlock.join('\n'),
+        });
+      }
+
+      // 开始新块
+      currentBlock = [line];
+
+      // 提取文件名
+      const match = line.match(/diff --git a\/(.*) b\/(.*)/);
+      if (match) {
+        currentFile = match[1];
+      } else {
+        currentFile = null;
+      }
+
+      continue;
+    }
+
+    // 将当前行添加到当前块
+    if (currentBlock.length > 0) {
+      currentBlock.push(line);
+    } else {
+      // 如果没有diff头就开始了，先创建一个块
+      currentBlock = [line];
+    }
+  }
+
+  // 添加最后一个块
+  if (currentBlock.length > 0 && currentFile) {
+    diffBlocks.push({
+      file: currentFile,
+      content: currentBlock.join('\n'),
+    });
+  }
+
+  // 过滤掉应该忽略的文件块
+  const filteredBlocks = diffBlocks.filter((block) => {
+    if (!block.file) return true;
+    if (shouldIgnoreFile(block.file, gitignoreRules)) {
+      console.log(`${colors.blue}信息: ${colors.reset}忽略文件: ${block.file}`);
+      return false;
+    }
+    return true;
+  });
+
+  // 重新组合diff
+  return filteredBlocks.map((block) => block.content).join('\n\n');
 }
 
 /**
@@ -154,8 +228,16 @@ function analyzeDiff(diff) {
     return { commentMatches, envIssues, businessDataSuspects, originalDiff: diff };
   }
 
+  // 首先过滤掉被忽略的文件
+  const filteredDiff = filterIgnoredFiles(diff, gitignoreRules);
+
+  if (!filteredDiff || filteredDiff.trim() === '') {
+    console.warn(`${colors.yellow}警告: ${colors.reset}过滤后没有变更内容`);
+    return { commentMatches, envIssues, businessDataSuspects, originalDiff: filteredDiff };
+  }
+
   // 按行分割diff
-  const lines = diff.split('\n');
+  const lines = filteredDiff.split('\n');
   let currentFile = null;
   let lineNumber = 0;
 
@@ -166,12 +248,6 @@ function analyzeDiff(diff) {
       const filePath = line.substring(4).trim();
       if (line.startsWith('+++') && !filePath.startsWith('/dev/null')) {
         currentFile = filePath.replace(/^[ba]\//, '');
-
-        // 检查是否应该忽略此文件
-        if (shouldIgnoreFile(currentFile, gitignoreRules)) {
-          console.log(`${colors.blue}信息: ${colors.reset}忽略文件: ${currentFile}`);
-          currentFile = null;
-        }
       }
       continue;
     }
@@ -244,7 +320,7 @@ function analyzeDiff(diff) {
     }
   }
 
-  return { commentMatches, envIssues, businessDataSuspects, originalDiff: diff };
+  return { commentMatches, envIssues, businessDataSuspects, originalDiff: filteredDiff };
 }
 
 /**
@@ -278,29 +354,33 @@ function buildPrompt(analysisResult) {
     diffContent = '没有发现代码变更';
   }
 
-  return `作为专业代码评审员，请分析以下代码变更（diff）。
+  return `你是一位专业且经验丰富的代码审查专家，请对以下代码变更（diff）进行全面分析，并提供简洁、结构清晰的代码审查意见。
 
-请特别注意：你的回答必须简洁通俗易懂，言简意赅，排版清晰。
+请严格遵循以下要求：
+- 输出语言：中文
+- 输出格式：TXT文本格式
+- 风格：简洁明了、重点突出，排版清晰，便于开发者快速理解和修复问题
+- 不要逐行重复解释 diff，而是提炼出关键问题、风险和优化建议
 
-[代码变更]:
+【输入信息】  
+代码变更（diff）：  
 ${diffContent}
 
-[识别的注释标记]:
-${commentsList}
+辅助信息（可参考，但不要依赖）：
+- 识别的注释标记：${commentsList}
+- 潜在环境/配置问题：${issuesList}  
+- 涉及的业务敏感数据：${businessDataList}
 
-[潜在的环境/配置问题]:
-${issuesList}
+【输出要求】
+请提供结构化的审查反馈，内容包括但不限于以下方面：
+1. **关键问题识别**：指出代码中的主要问题与潜在风险（如逻辑错误、遗漏、代码异味等）
+2. **环境与配置风险**：判断是否存在配置错误、环境耦合或未考虑部署环境差异的问题
+3. **敏感信息与硬编码检查**：评估是否存在敏感数据泄露风险或不应出现在生产环境中的硬编码值
+4. **改进建议**：提出具体、可操作的优化建议
+5. **合并前必须解决的问题**：清晰列出阻止代码合并的关键问题
 
-[业务敏感数据]:
-${businessDataList}
-
-请提供简明的代码审查意见：
-1. 全面分析代码变更内容（diffContent），不要仅依赖自动识别的环境问题和敏感数据列表
-2. 关注代码中的关键问题和风险
-3. 评估测试数据和硬编码值是否适合出现在生产环境
-4. 明确列出需要在合并前解决的主要问题
-
-请以中文提供简洁、结构清晰的总结:`;
+请确保你的审查总结结构清晰，便于快速审阅与跟踪整改。
+`;
 }
 
 /**
@@ -354,7 +434,7 @@ function displayResults(analysisResult, aiSummary) {
   console.log('='.repeat(80));
 
   if (commentMatches.length > 0) {
-    console.log(`\n${colors.bold}${colors.yellow}🔍 发现的注释标记 (${commentMatches.length}):${colors.reset}`);
+    console.log(`\n${colors.bold}${colors.yellow}🔍 发现代码标记 (${commentMatches.length}):${colors.reset}`);
     for (const comment of commentMatches) {
       console.log(
         `  ${colors.cyan}${comment.file}:${comment.line}${colors.reset} - ${colors.yellow}${comment.type}:${colors.reset} ${comment.text}`
@@ -381,7 +461,7 @@ function displayResults(analysisResult, aiSummary) {
     }
 
     for (const [category, items] of Object.entries(dataByCategory)) {
-      console.log(`  ${colors.bold}${getEmojiForCategory(category)} ${category} (${items.length}项):${colors.reset}`);
+      console.log(`  ${colors.bold} ${category} (${items.length}项):${colors.reset}`);
       for (const item of items) {
         console.log(
           `    ${colors.cyan}${item.file}:${item.line}${colors.reset} - "${colors.yellow}${item.match}${colors.reset}" 在 "${item.content}"`
@@ -394,27 +474,6 @@ function displayResults(analysisResult, aiSummary) {
   console.log(`${colors.bold}🤖 AI代码审查意见:${colors.reset}\n`);
   console.log(aiSummary);
   console.log('\n' + '='.repeat(80));
-}
-
-/**
- * 根据分类获取对应的emoji
- * @param {string} category 分类名称
- * @returns {string} 对应的emoji
- */
-function getEmojiForCategory(category) {
-  const emojiMap = {
-    金额: '💰',
-    账户: '👤',
-    ID: '🔑',
-    手机号: '📱',
-    邮箱: '📧',
-    密钥: '🔐',
-    证件: '📄',
-    URL: '🔗',
-    IP: '🌐',
-  };
-
-  return emojiMap[category] || '📎';
 }
 
 /**
