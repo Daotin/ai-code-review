@@ -15,13 +15,11 @@
 ### 全局安装
 
 ```bash
+# 不安装
+npx @fe-ai-demo/ai-code-review
+
+# 全局安装
 npm install -g @fe-ai-demo/ai-code-review
-```
-
-### 项目内安装
-
-```bash
-npm install @fe-ai-demo/ai-code-review --save-dev
 ```
 
 ## 设置 API Key
@@ -29,11 +27,11 @@ npm install @fe-ai-demo/ai-code-review --save-dev
 首次使用前，需要设置 OpenRouter API Key：
 
 ```bash
+# 不安装的情况
+npx @fe-ai-demo/ai-code-review --set-key YOUR_API_KEY
+
 # 全局安装的情况
 ai-cr --set-key YOUR_API_KEY
-
-# 项目内安装的情况
-npx @fe-ai-demo/ai-code-review --set-key YOUR_API_KEY
 ```
 
 API Key 将安全保存在用户主目录下的 `.ai-cr-config.json` 文件中，无需重复设置。
@@ -43,14 +41,11 @@ API Key 将安全保存在用户主目录下的 `.ai-cr-config.json` 文件中�
 ### 全局使用
 
 ```bash
-ai-cr
-```
-
-### 在项目中使用
-
-```bash
-# 直接运行
+# 不安装的情况，直接运行
 npx @fe-ai-demo/ai-code-review
+
+# 全局安装的情况
+ai-cr
 
 # 或添加到 package.json 脚本
 # "scripts": {
@@ -87,3 +82,39 @@ npm run cr
 - 环境问题检测规则（调试代码、测试配置等）
 - 忽略检查的路径
 - OpenRouter API 设置`model`
+
+## 发布准备
+
+1. 确保已经登录 npm 账户
+
+```bash
+npm login
+```
+
+2. 执行发布命令
+
+```bash
+npm publish --access public
+```
+
+## 更新版本
+
+如需更新版本，修改 package.json 中的版本号并重新发布：
+
+1. 升级补丁版本（修复 bug）
+
+```bash
+npm version patch
+```
+
+2. 升级小版本（新增功能）
+
+```bash
+npm version minor
+```
+
+3. 升级主版本（不兼容变更）
+
+```bash
+npm version major
+```
