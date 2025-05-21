@@ -1,25 +1,25 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-import { execSync } from 'child_process';
-import fetch from 'node-fetch';
-import os from 'os';
-import config from './review.config.js';
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+import { execSync } from "child_process";
+import fetch from "node-fetch";
+import os from "os";
+import config from "./review.config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // ANSI 颜色代码
 const colors = {
-  reset: '\x1b[0m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  magenta: '\x1b[35m',
-  cyan: '\x1b[36m',
-  bold: '\x1b[1m',
+  reset: "\x1b[0m",
+  red: "\x1b[31m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  blue: "\x1b[34m",
+  magenta: "\x1b[35m",
+  cyan: "\x1b[36m",
+  bold: "\x1b[1m",
 };
 
 /**
@@ -28,23 +28,28 @@ const colors = {
  */
 function setApiKey(apiKey) {
   try {
-    const configPath = path.join(os.homedir(), '.ai-cr-config.json');
+    const configPath = path.join(os.homedir(), ".ai-cr-config.json");
     let config = {};
 
     // 如果配置文件已存在，读取现有配置
     if (fs.existsSync(configPath)) {
-      config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      config = JSON.parse(fs.readFileSync(configPath, "utf8"));
     }
 
     // 更新API Key
     config.apiKey = apiKey;
 
     // 写入配置文件
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
-    console.log(`${colors.green}✓ 成功: ${colors.reset}API Key已保存到 ${configPath}`);
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+    console.log(
+      `${colors.green}✓ 成功: ${colors.reset}API Key已保存到 ${configPath}`
+    );
     return true;
   } catch (error) {
-    console.error(`${colors.red}错误: ${colors.reset}保存API Key失败:`, error.message);
+    console.error(
+      `${colors.red}错误: ${colors.reset}保存API Key失败:`,
+      error.message
+    );
     return false;
   }
 }
@@ -55,19 +60,24 @@ function setApiKey(apiKey) {
  */
 function loadGitIgnoreRules() {
   const CWD = process.cwd();
-  const gitignorePath = path.join(CWD, '.gitignore');
+  const gitignorePath = path.join(CWD, ".gitignore");
 
   if (fs.existsSync(gitignorePath)) {
     try {
-      const content = fs.readFileSync(gitignorePath, 'utf8');
+      const content = fs.readFileSync(gitignorePath, "utf8");
       const rules = content
-        .split('\n')
+        .split("\n")
         .map((line) => line.trim())
-        .filter((line) => line && !line.startsWith('#'));
-      console.log(`${colors.blue}信息: ${colors.reset}已加载${rules.length}条.gitignore规则`);
+        .filter((line) => line && !line.startsWith("#"));
+      console.log(
+        `${colors.blue}信息: ${colors.reset}已加载${rules.length}条.gitignore规则`
+      );
       return rules;
     } catch (error) {
-      console.warn(`${colors.yellow}警告: ${colors.reset}读取.gitignore文件失败:`, error.message);
+      console.warn(
+        `${colors.yellow}警告: ${colors.reset}读取.gitignore文件失败:`,
+        error.message
+      );
       return [];
     }
   }
@@ -85,7 +95,7 @@ function shouldIgnoreFile(filePath, gitignoreRules) {
   if (
     config.ignoredPaths &&
     config.ignoredPaths.some((pattern) => {
-      if (typeof pattern === 'string') {
+      if (typeof pattern === "string") {
         return filePath.includes(pattern);
       } else if (pattern instanceof RegExp) {
         return pattern.test(filePath);
@@ -99,7 +109,7 @@ function shouldIgnoreFile(filePath, gitignoreRules) {
   // 检查.gitignore规则
   for (const rule of gitignoreRules) {
     // 简单实现:检查路径是否匹配规则(包含或结束)
-    if (filePath.endsWith(rule) || filePath.includes('/' + rule)) {
+    if (filePath.endsWith(rule) || filePath.includes("/" + rule)) {
       return true;
     }
   }
@@ -111,18 +121,45 @@ function shouldIgnoreFile(filePath, gitignoreRules) {
  * @returns {string|null} 'git', 'svn' 或 null
  */
 function detectVCS() {
-  const CWD = process.cwd();
+  let currentPath = process.cwd();
+  const root = path.parse(currentPath).root; // 获取文件系统根目录，避免无限循环
 
-  if (fs.existsSync(path.join(CWD, '.git'))) {
-    console.log(`${colors.blue}信息: ${colors.reset}检测到 Git 仓库`);
-    return 'git';
-  } else if (fs.existsSync(path.join(CWD, '.svn'))) {
-    console.log(`${colors.blue}信息: ${colors.reset}检测到 SVN 仓库`);
-    return 'svn';
-  } else {
-    console.warn(`${colors.yellow}警告: ${colors.reset}未检测到 Git 或 SVN 仓库`);
-    return null;
+  while (currentPath && currentPath !== root) {
+    if (fs.existsSync(path.join(currentPath, ".git"))) {
+      console.log(
+        `${colors.blue}信息: ${colors.reset}在 ${currentPath} 检测到 Git 仓库`
+      );
+      return "git";
+    } else if (fs.existsSync(path.join(currentPath, ".svn"))) {
+      console.log(
+        `${colors.blue}信息: ${colors.reset}在 ${currentPath} 检测到 SVN 仓库`
+      );
+      return "svn";
+    }
+    currentPath = path.dirname(currentPath); // 移动到上一级目录
   }
+
+  // 最后检查一次根目录（如果循环因为 currentPath === root 而停止）
+  if (currentPath === root) {
+    if (fs.existsSync(path.join(currentPath, ".git"))) {
+      console.log(
+        `${colors.blue}信息: ${colors.reset}在 ${currentPath} 检测到 Git 仓库`
+      );
+      return "git";
+    } else if (fs.existsSync(path.join(currentPath, ".svn"))) {
+      console.log(
+        `${colors.blue}信息: ${colors.reset}在 ${currentPath} 检测到 SVN 仓库`
+      );
+      return "svn";
+    }
+  }
+
+  console.warn(
+    `${colors.yellow}警告: ${
+      colors.reset
+    }未检测到 Git 或 SVN 仓库 (已从 ${process.cwd()} 向上搜索)`
+  );
+  return null;
 }
 
 /**
@@ -132,32 +169,37 @@ function detectVCS() {
  */
 function getVCSDiff(vcs) {
   try {
-    if (vcs === 'git') {
+    if (vcs === "git") {
       try {
         console.log(`${colors.blue}信息: ${colors.reset}检查工作目录变更...`);
-        let workingDiff = execSync('git diff HEAD', { encoding: 'utf8' });
+        let workingDiff = execSync("git diff HEAD", { encoding: "utf8" });
 
         // 获取已暂存的更改
-        let stagedDiff = execSync('git diff --cached', { encoding: 'utf8' });
+        let stagedDiff = execSync("git diff --cached", { encoding: "utf8" });
 
         // 合并两种更改
         let combinedDiff = workingDiff + stagedDiff;
 
         // 如果有任何变更，返回
-        if (combinedDiff && combinedDiff.trim() !== '') {
+        if (combinedDiff && combinedDiff.trim() !== "") {
           return combinedDiff;
         }
       } catch (gitError) {
         // Git命令可能失败，尝试获取本地文件变更
-        console.warn(`${colors.yellow}警告: ${colors.reset}无法使用git获取变更，尝试从本地文件读取...`);
+        console.warn(
+          `${colors.yellow}警告: ${colors.reset}无法使用git获取变更，尝试从本地文件读取...`
+        );
       }
-    } else if (vcs === 'svn') {
-      return execSync('svn diff', { encoding: 'utf8' });
+    } else if (vcs === "svn") {
+      return execSync("svn diff", { encoding: "utf8" });
     }
-    return '';
+    return "";
   } catch (error) {
-    console.error(`${colors.red}错误: ${colors.reset}获取变更失败:`, error.stderr || error.message);
-    return '';
+    console.error(
+      `${colors.red}错误: ${colors.reset}获取变更失败:`,
+      error.stderr || error.message
+    );
+    return "";
   }
 }
 
@@ -168,7 +210,7 @@ function getVCSDiff(vcs) {
  * @returns {string} 过滤后的diff
  */
 function filterIgnoredFiles(diff, gitignoreRules) {
-  if (!diff || diff.trim() === '') {
+  if (!diff || diff.trim() === "") {
     return diff;
   }
 
@@ -178,18 +220,18 @@ function filterIgnoredFiles(diff, gitignoreRules) {
   let currentFile = null;
 
   // 按行分割diff
-  const lines = diff.split('\n');
+  const lines = diff.split("\n");
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
     // 检测新文件头
-    if (line.startsWith('diff --git')) {
+    if (line.startsWith("diff --git")) {
       // 保存之前的块
       if (currentBlock.length > 0 && currentFile) {
         diffBlocks.push({
           file: currentFile,
-          content: currentBlock.join('\n'),
+          content: currentBlock.join("\n"),
         });
       }
 
@@ -220,7 +262,7 @@ function filterIgnoredFiles(diff, gitignoreRules) {
   if (currentBlock.length > 0 && currentFile) {
     diffBlocks.push({
       file: currentFile,
-      content: currentBlock.join('\n'),
+      content: currentBlock.join("\n"),
     });
   }
 
@@ -235,7 +277,7 @@ function filterIgnoredFiles(diff, gitignoreRules) {
   });
 
   // 重新组合diff
-  return filteredBlocks.map((block) => block.content).join('\n\n');
+  return filteredBlocks.map((block) => block.content).join("\n\n");
 }
 
 /**
@@ -249,37 +291,47 @@ function analyzeDiff(diff) {
   const businessDataSuspects = []; // 所有可疑的业务敏感数据
   const gitignoreRules = loadGitIgnoreRules();
 
-  if (!diff || diff.trim() === '') {
+  if (!diff || diff.trim() === "") {
     console.warn(`${colors.yellow}警告: ${colors.reset}没有发现变更内容`);
-    return { commentMatches, envIssues, businessDataSuspects, originalDiff: diff };
+    return {
+      commentMatches,
+      envIssues,
+      businessDataSuspects,
+      originalDiff: diff,
+    };
   }
 
   // 首先过滤掉被忽略的文件
   const filteredDiff = filterIgnoredFiles(diff, gitignoreRules);
 
-  if (!filteredDiff || filteredDiff.trim() === '') {
+  if (!filteredDiff || filteredDiff.trim() === "") {
     console.warn(`${colors.yellow}警告: ${colors.reset}过滤后没有变更内容`);
-    return { commentMatches, envIssues, businessDataSuspects, originalDiff: filteredDiff };
+    return {
+      commentMatches,
+      envIssues,
+      businessDataSuspects,
+      originalDiff: filteredDiff,
+    };
   }
 
   // 按行分割diff
-  const lines = filteredDiff.split('\n');
+  const lines = filteredDiff.split("\n");
   let currentFile = null;
   let lineNumber = 0;
 
   // 单次扫描：同时检测所有问题
   for (const line of lines) {
     // 检测文件头行
-    if (line.startsWith('+++') || line.startsWith('---')) {
+    if (line.startsWith("+++") || line.startsWith("---")) {
       const filePath = line.substring(4).trim();
-      if (line.startsWith('+++') && !filePath.startsWith('/dev/null')) {
-        currentFile = filePath.replace(/^[ba]\//, '');
+      if (line.startsWith("+++") && !filePath.startsWith("/dev/null")) {
+        currentFile = filePath.replace(/^[ba]\//, "");
       }
       continue;
     }
 
     // 检测行号变化
-    if (currentFile && line.startsWith('@@')) {
+    if (currentFile && line.startsWith("@@")) {
       const match = line.match(/@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
       if (match) {
         lineNumber = parseInt(match[1], 10) - 1;
@@ -288,7 +340,7 @@ function analyzeDiff(diff) {
     }
 
     // 分析增加的行内容
-    if (currentFile && line.startsWith('+') && !line.startsWith('+++')) {
+    if (currentFile && line.startsWith("+") && !line.startsWith("+++")) {
       const contentLine = line.substring(1);
       lineNumber++;
 
@@ -300,7 +352,7 @@ function analyzeDiff(diff) {
             file: currentFile,
             line: lineNumber,
             type: keyword.type,
-            text: match[1]?.trim() || '未提供描述',
+            text: match[1]?.trim() || "未提供描述",
           });
         }
       }
@@ -321,7 +373,9 @@ function analyzeDiff(diff) {
       // 检查业务敏感数据 - 简化版，只收集所有匹配项
       if (config.businessDataPatterns) {
         // 遍历不同类型的业务数据模式
-        for (const [category, patterns] of Object.entries(config.businessDataPatterns)) {
+        for (const [category, patterns] of Object.entries(
+          config.businessDataPatterns
+        )) {
           for (const patternConfig of patterns) {
             const matches = [...contentLine.matchAll(patternConfig.pattern)];
             for (const match of matches) {
@@ -340,13 +394,18 @@ function analyzeDiff(diff) {
           }
         }
       }
-    } else if (currentFile && line.startsWith(' ')) {
+    } else if (currentFile && line.startsWith(" ")) {
       // 上下文行，更新行号
       lineNumber++;
     }
   }
 
-  return { commentMatches, envIssues, businessDataSuspects, originalDiff: filteredDiff };
+  return {
+    commentMatches,
+    envIssues,
+    businessDataSuspects,
+    originalDiff: filteredDiff,
+  };
 }
 
 /**
@@ -355,29 +414,37 @@ function analyzeDiff(diff) {
  * @returns {string} 提示词
  */
 function buildPrompt(analysisResult) {
-  const { commentMatches, envIssues, businessDataSuspects, originalDiff } = analysisResult;
+  const { commentMatches, envIssues, businessDataSuspects, originalDiff } =
+    analysisResult;
 
-  let commentsList = '无特殊注释标记';
+  let commentsList = "无特殊注释标记";
   if (commentMatches.length > 0) {
-    commentsList = commentMatches.map((c) => `- ${c.file}:${c.line} ${c.type}: ${c.text}`).join('\n');
+    commentsList = commentMatches
+      .map((c) => `- ${c.file}:${c.line} ${c.type}: ${c.text}`)
+      .join("\n");
   }
 
-  let issuesList = '无环境相关问题';
+  let issuesList = "无环境相关问题";
   if (envIssues.length > 0) {
-    issuesList = envIssues.map((i) => `- ${i.file}:${i.line} ${i.message}`).join('\n');
+    issuesList = envIssues
+      .map((i) => `- ${i.file}:${i.line} ${i.message}`)
+      .join("\n");
   }
 
   // 构建业务敏感数据列表
-  let businessDataList = '无业务敏感数据';
+  let businessDataList = "无业务敏感数据";
   if (businessDataSuspects.length > 0) {
     businessDataList = businessDataSuspects
-      .map((b) => `- ${b.file}:${b.line} [${b.category}] 匹配: "${b.match}" 在内容: "${b.content}"`)
-      .join('\n');
+      .map(
+        (b) =>
+          `- ${b.file}:${b.line} [${b.category}] 匹配: "${b.match}" 在内容: "${b.content}"`
+      )
+      .join("\n");
   }
 
   let diffContent = originalDiff.trim();
-  if (diffContent === '') {
-    diffContent = '没有发现代码变更';
+  if (diffContent === "") {
+    diffContent = "没有发现代码变更";
   }
 
   return `你是一位专业且经验丰富的代码审查专家，请对以下代码变更（diff）进行全面分析，并提供简洁、结构清晰的代码审查意见。
@@ -417,33 +484,43 @@ ${diffContent}
 async function callOpenRouter(promptContent) {
   if (!config.openRouter.apiKey) {
     console.error(`${colors.red}错误: ${colors.reset}未设置 apiKey 环境变量`);
-    return 'OpenRouter API密钥未配置。AI分析不可用。';
+    return "OpenRouter API密钥未配置。AI分析不可用。";
   }
 
-  console.log(`${colors.blue}信息: ${colors.reset}正在调用AI进行代码审查，请稍候...`);
+  console.log(
+    `${colors.blue}信息: ${colors.reset}正在调用AI进行代码审查，请稍候...`
+  );
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.openRouter.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: config.openRouter.model,
-        messages: [{ role: 'user', content: promptContent }],
-      }),
-    });
+    const response = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.openRouter.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: config.openRouter.model,
+          messages: [{ role: "user", content: promptContent }],
+        }),
+      }
+    );
 
     if (!response.ok) {
-      throw new Error(`API请求失败，状态码 ${response.status}: ${await response.text()}`);
+      throw new Error(
+        `API请求失败，状态码 ${response.status}: ${await response.text()}`
+      );
     }
 
     const data = await response.json();
-    return data.choices[0]?.message?.content || '未从AI接收到摘要。';
+    return data.choices[0]?.message?.content || "未从AI接收到摘要。";
   } catch (error) {
-    console.error(`${colors.red}错误: ${colors.reset}调用OpenRouter API失败:`, error.message);
-    return 'AI通信出错。摘要不可用。';
+    console.error(
+      `${colors.red}错误: ${colors.reset}调用OpenRouter API失败:`,
+      error.message
+    );
+    return "AI通信出错。摘要不可用。";
   }
 }
 
@@ -456,11 +533,13 @@ function displayResults(analysisResult, aiSummary) {
   const { commentMatches, envIssues, businessDataSuspects } = analysisResult;
 
   // 标题栏
-  console.log(`\n${'='.repeat(40)}`, '📋 代码审查结果', '='.repeat(40));
+  console.log(`\n${"=".repeat(40)}`, "📋 代码审查结果", "=".repeat(40));
 
   // 代码标记
   if (commentMatches.length > 0) {
-    console.log(`\n${colors.bold}${colors.yellow}🔍 发现代码标记 (${commentMatches.length}):${colors.reset}`);
+    console.log(
+      `\n${colors.bold}${colors.yellow}🔍 发现代码标记 (${commentMatches.length}):${colors.reset}`
+    );
 
     // 按类型分组
     const commentsByType = {};
@@ -473,16 +552,22 @@ function displayResults(analysisResult, aiSummary) {
 
     // 按类型展示
     for (const [type, comments] of Object.entries(commentsByType)) {
-      console.log(`  ${colors.yellow}${type}${colors.reset} (${comments.length}项):`);
+      console.log(
+        `  ${colors.yellow}${type}${colors.reset} (${comments.length}项):`
+      );
       for (const comment of comments) {
-        console.log(`    ${colors.cyan}${comment.file}:${comment.line}${colors.reset} - ${comment.text}`);
+        console.log(
+          `    ${colors.cyan}${comment.file}:${comment.line}${colors.reset} - ${comment.text}`
+        );
       }
     }
   }
 
   // 环境问题
   if (envIssues.length > 0) {
-    console.log(`\n${colors.bold}${colors.magenta}⚠️ 潜在环境问题 (${envIssues.length}):${colors.reset}`);
+    console.log(
+      `\n${colors.bold}${colors.magenta}⚠️ 潜在环境问题 (${envIssues.length}):${colors.reset}`
+    );
 
     // 按消息分组
     const issuesByMessage = {};
@@ -495,16 +580,22 @@ function displayResults(analysisResult, aiSummary) {
 
     // 按消息类型展示
     for (const [message, issues] of Object.entries(issuesByMessage)) {
-      console.log(`  ${colors.magenta}${message}${colors.reset} (${issues.length}项):`);
+      console.log(
+        `  ${colors.magenta}${message}${colors.reset} (${issues.length}项):`
+      );
       for (const issue of issues) {
-        console.log(`    ${colors.cyan}${issue.file}:${issue.line}${colors.reset}`);
+        console.log(
+          `    ${colors.cyan}${issue.file}:${issue.line}${colors.reset}`
+        );
       }
     }
   }
 
   // 业务敏感数据
   if (businessDataSuspects.length > 0) {
-    console.log(`\n${colors.bold}${colors.cyan}🔒 业务敏感数据 (${businessDataSuspects.length}):${colors.reset}`);
+    console.log(
+      `\n${colors.bold}${colors.cyan}🔒 业务敏感数据 (${businessDataSuspects.length}):${colors.reset}`
+    );
 
     // 按类别分组显示
     const dataByCategory = {};
@@ -520,7 +611,9 @@ function displayResults(analysisResult, aiSummary) {
     for (const category of sortedCategories) {
       const items = dataByCategory[category];
       const emoji = getEmojiForCategory(category);
-      console.log(`  ${colors.bold}${emoji} ${category} (${items.length}项):${colors.reset}`);
+      console.log(
+        `  ${colors.bold}${emoji} ${category} (${items.length}项):${colors.reset}`
+      );
 
       // 按文件分组
       const itemsByFile = {};
@@ -544,7 +637,8 @@ function displayResults(analysisResult, aiSummary) {
   }
 
   // 统计信息
-  const totalIssues = commentMatches.length + envIssues.length + businessDataSuspects.length;
+  const totalIssues =
+    commentMatches.length + envIssues.length + businessDataSuspects.length;
   // if (totalIssues > 0) {
   //   console.log(`\n${colors.bold}📊 统计信息:${colors.reset}`);
   //   console.log(`  • 代码标记: ${commentMatches.length}项`);
@@ -560,7 +654,7 @@ function displayResults(analysisResult, aiSummary) {
   }
 
   // AI 审查意见
-  console.log(`\n${'='.repeat(40)}`, '🤖 AI代码审查意见', '='.repeat(40));
+  console.log(`\n${"=".repeat(40)}`, "🤖 AI代码审查意见", "=".repeat(40));
   console.log(aiSummary);
 }
 
@@ -572,7 +666,7 @@ async function main() {
   const args = process.argv.slice(2);
   if (args.length > 0) {
     // 设置API Key
-    if (args[0] === '--set-key' || args[0] === '-k') {
+    if (args[0] === "--set-key" || args[0] === "-k") {
       const apiKey = args[1];
       if (!apiKey) {
         console.error(`${colors.red}错误: ${colors.reset}请提供API Key`);
@@ -582,13 +676,15 @@ async function main() {
 
       const success = setApiKey(apiKey);
       if (success) {
-        console.log(`${colors.green}API Key设置成功。${colors.reset}您现在可以直接运行 ai-cr 命令了。`);
+        console.log(
+          `${colors.green}API Key设置成功。${colors.reset}您现在可以直接运行 ai-cr 命令了。`
+        );
       }
       process.exit(success ? 0 : 1);
     }
 
     // 显示帮助信息
-    if (args[0] === '--help' || args[0] === '-h') {
+    if (args[0] === "--help" || args[0] === "-h") {
       console.log(`
 ${colors.bold}AI 代码审查工具${colors.reset}
 
@@ -605,24 +701,30 @@ ${colors.bold}AI 代码审查工具${colors.reset}
     }
   }
 
-  console.log(`\n${'='.repeat(40)}`, '🚀 开始代码审查...', '='.repeat(40));
+  console.log(`\n${"=".repeat(40)}`, "🚀 开始代码审查...", "=".repeat(40));
 
   // 检查API Key是否已设置
   if (!config.openRouter.apiKey) {
-    console.error(`${colors.red}❌ 错误: ${colors.reset}未设置API Key，请先运行以下命令设置:`);
+    console.error(
+      `${colors.red}❌ 错误: ${colors.reset}未设置API Key，请先运行以下命令设置:`
+    );
     console.log(`ai-cr --set-key YOUR_API_KEY`);
     process.exit(1);
   }
 
   const vcs = detectVCS();
   if (!vcs) {
-    console.error(`${colors.red}❌ 错误: ${colors.reset}未能识别版本控制系统。请确保在Git或SVN仓库中执行此命令。`);
+    console.error(
+      `${colors.red}❌ 错误: ${colors.reset}未能识别版本控制系统。请确保在Git或SVN仓库中执行此命令。`
+    );
     process.exit(0);
   }
 
   const diff = getVCSDiff(vcs);
-  if (!diff || diff.trim() === '') {
-    console.log(`${colors.yellow}⚠️ 警告: ${colors.reset}没有检测到代码变更。确保你的修改已经保存。`);
+  if (!diff || diff.trim() === "") {
+    console.log(
+      `${colors.yellow}⚠️ 警告: ${colors.reset}没有检测到代码变更。确保你的修改已经保存。`
+    );
     process.exit(0);
   }
 
