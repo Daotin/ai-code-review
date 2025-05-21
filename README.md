@@ -24,28 +24,14 @@ npm install
 ### 手动触发代码审查
 
 ```bash
-npm run review:code
+npm run cr
 ```
 
 ## 配置
 
-配置文件位于 `scripts/review.config.js`，可以自定义以下内容：
+配置文件位于 `src/review.config.js`，可以自定义以下内容：
 
 - 需要提取的注释标记（如 TODO、FIXME 等）
 - 环境问题检测规则（调试代码、测试配置等）
 - 忽略检查的路径
-- OpenRouter API 设置
-
-## API 密钥
-
-当前 API 密钥直接硬编码在脚本中，实际使用时建议通过环境变量或.env 文件配置：
-
-```bash
-# .env文件示例
-OPENROUTER_API_KEY=your_api_key_here
-```
-
-## 注意事项
-
-- 工具不会阻止代码提交，仅提供参考意见
-- 大型变更可能导致 API 调用超时或失败
+- OpenRouter API 设置`model`和`apiKey`

@@ -429,28 +429,57 @@ async function callOpenRouter(promptContent) {
 function displayResults(analysisResult, aiSummary) {
   const { commentMatches, envIssues, businessDataSuspects } = analysisResult;
 
-  console.log('\n' + '='.repeat(80));
-  console.log(`${colors.bold}${colors.green}📋 代码审查结果 📋${colors.reset}`);
-  console.log('='.repeat(80));
+  // 标题栏
+  console.log(`\n${'='.repeat(40)}`, '📋 代码审查结果', '='.repeat(40));
 
+  // 代码标记
   if (commentMatches.length > 0) {
     console.log(`\n${colors.bold}${colors.yellow}🔍 发现代码标记 (${commentMatches.length}):${colors.reset}`);
+
+    // 按类型分组
+    const commentsByType = {};
     for (const comment of commentMatches) {
-      console.log(
-        `  ${colors.cyan}${comment.file}:${comment.line}${colors.reset} - ${colors.yellow}${comment.type}:${colors.reset} ${comment.text}`
-      );
+      if (!commentsByType[comment.type]) {
+        commentsByType[comment.type] = [];
+      }
+      commentsByType[comment.type].push(comment);
+    }
+
+    // 按类型展示
+    for (const [type, comments] of Object.entries(commentsByType)) {
+      console.log(`  ${colors.yellow}${type}${colors.reset} (${comments.length}项):`);
+      for (const comment of comments) {
+        console.log(`    ${colors.cyan}${comment.file}:${comment.line}${colors.reset} - ${comment.text}`);
+      }
     }
   }
 
+  // 环境问题
   if (envIssues.length > 0) {
     console.log(`\n${colors.bold}${colors.magenta}⚠️ 潜在环境问题 (${envIssues.length}):${colors.reset}`);
+
+    // 按消息分组
+    const issuesByMessage = {};
     for (const issue of envIssues) {
-      console.log(`  ${colors.cyan}${issue.file}:${issue.line}${colors.reset} - ${issue.message}`);
+      if (!issuesByMessage[issue.message]) {
+        issuesByMessage[issue.message] = [];
+      }
+      issuesByMessage[issue.message].push(issue);
+    }
+
+    // 按消息类型展示
+    for (const [message, issues] of Object.entries(issuesByMessage)) {
+      console.log(`  ${colors.magenta}${message}${colors.reset} (${issues.length}项):`);
+      for (const issue of issues) {
+        console.log(`    ${colors.cyan}${issue.file}:${issue.line}${colors.reset}`);
+      }
     }
   }
 
+  // 业务敏感数据
   if (businessDataSuspects.length > 0) {
     console.log(`\n${colors.bold}${colors.cyan}🔒 业务敏感数据 (${businessDataSuspects.length}):${colors.reset}`);
+
     // 按类别分组显示
     const dataByCategory = {};
     for (const data of businessDataSuspects) {
@@ -460,27 +489,60 @@ function displayResults(analysisResult, aiSummary) {
       dataByCategory[data.category].push(data);
     }
 
-    for (const [category, items] of Object.entries(dataByCategory)) {
-      console.log(`  ${colors.bold} ${category} (${items.length}项):${colors.reset}`);
+    // 按类别排序并展示
+    const sortedCategories = Object.keys(dataByCategory).sort();
+    for (const category of sortedCategories) {
+      const items = dataByCategory[category];
+      const emoji = getEmojiForCategory(category);
+      console.log(`  ${colors.bold}${emoji} ${category} (${items.length}项):${colors.reset}`);
+
+      // 按文件分组
+      const itemsByFile = {};
       for (const item of items) {
-        console.log(
-          `    ${colors.cyan}${item.file}:${item.line}${colors.reset} - "${colors.yellow}${item.match}${colors.reset}" 在 "${item.content}"`
-        );
+        if (!itemsByFile[item.file]) {
+          itemsByFile[item.file] = [];
+        }
+        itemsByFile[item.file].push(item);
+      }
+
+      // 按文件展示
+      for (const [file, fileItems] of Object.entries(itemsByFile)) {
+        console.log(`    ${colors.cyan}${file}:${colors.reset}`);
+        for (const item of fileItems) {
+          console.log(
+            `      ${colors.cyan}行 ${item.line}${colors.reset} - "${colors.yellow}${item.match}${colors.reset}" 在 "${item.content}"`
+          );
+        }
       }
     }
   }
 
-  console.log('\n' + '-'.repeat(80));
-  console.log(`${colors.bold}🤖 AI代码审查意见:${colors.reset}\n`);
+  // 统计信息
+  const totalIssues = commentMatches.length + envIssues.length + businessDataSuspects.length;
+  // if (totalIssues > 0) {
+  //   console.log(`\n${colors.bold}📊 统计信息:${colors.reset}`);
+  //   console.log(`  • 代码标记: ${commentMatches.length}项`);
+  //   console.log(`  • 环境问题: ${envIssues.length}项`);
+  //   console.log(`  • 敏感数据: ${businessDataSuspects.length}项`);
+  //   console.log(`  • 总计问题: ${totalIssues}项`);
+  //   console.log(`  ${'-'.repeat(40)}`);
+  // }
+
+  // 如果没有发现任何问题
+  if (totalIssues === 0) {
+    console.log(`\n${colors.green}✓ 未发现任何问题${colors.reset}`);
+  }
+
+  // AI 审查意见
+  console.log(`\n${'='.repeat(40)}`, '🤖 AI代码审查意见', '='.repeat(40));
   console.log(aiSummary);
-  console.log('\n' + '='.repeat(80));
 }
 
 /**
  * 主函数
  */
 async function main() {
-  console.log(`\n${colors.bold}${colors.green}🚀 开始代码审查...${colors.reset}\n`);
+  console.log(`\n${'='.repeat(40)}`, '🚀 开始代码审查...', '='.repeat(40));
 
   const vcs = detectVCS();
   if (!vcs) {
@@ -490,15 +552,16 @@ async function main() {
 
   const diff = getVCSDiff(vcs);
   if (!diff || diff.trim() === '') {
-    console.log(`${colors.yellow}⚠️ 警告: ${colors.reset}没有检测到代码变更。确保你已经进行了修改但尚未提交。`);
+    console.log(`${colors.yellow}⚠️ 警告: ${colors.reset}没有检测到代码变更。确保你的修改已经保存。`);
     process.exit(0);
   }
 
   const analysisResult = analyzeDiff(diff);
   const prompt = buildPrompt(analysisResult);
-  const aiSummary = await callOpenRouter(prompt);
+  // TODO: 调用OpenRouter API
+  // const aiSummary = await callOpenRouter(prompt);
 
-  displayResults(analysisResult, aiSummary);
+  displayResults(analysisResult, 'AI摘要功能已禁用');
 
   // 非阻塞退出
   process.exit(0);

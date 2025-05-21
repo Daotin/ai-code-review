@@ -31,7 +31,7 @@
 
 本方案的核心是一个 Node.js 脚本，该脚本负责获取代码变更、执行本地分析、调用 OpenRouter API 并输出结果。
 
-### 3.1. 核心脚本 (`scripts/code-review.js`)
+### 3.1. 核心脚本 (`src/code-review.js`)
 
 此脚本是所有逻辑的执行中心。
 
@@ -186,7 +186,7 @@
 1.  安装 Husky: `npm install husky --save-dev` (或 `yarn add husky --dev`)
 2.  初始化 Husky: `npx husky init` (会在 `.husky/` 目录下生成文件)
 3.  添加 `pre-commit` 钩子:
-    `npx husky add .husky/pre-commit "node ./scripts/code-review.js && exit 0"`
+    `npx husky add .husky/pre-commit "node ./src/code-review.js && exit 0"`
     - **关键：** `&& exit 0` 确保即使脚本发现问题并输出信息，也不会阻止提交。如果希望在脚本执行出错时阻止提交，可以去掉 `&& exit 0`，并在脚本内部的严重错误处 `process.exit(1)`。但根据需求，这里是不阻塞提交。
 
 **3.2.2. NPM Script (手动校验)：**
@@ -194,7 +194,7 @@
 - 在 `package.json` 的 `scripts` 中添加:
   ```json
   "scripts": {
-    "review:code": "node ./scripts/code-review.js"
+    "review:code": "node ./src/code-review.js"
   }
   ```
 - 执行命令：`npm run review:code` 或 `yarn review:code`。
@@ -212,7 +212,7 @@
 
 ## 5. 集成到已有前端项目
 
-1.  **脚本文件：** 将 `code-review.js` 放置在项目目录中（例如 `scripts/code-review.js`）。
+1.  **脚本文件：** 将 `code-review.js` 放置在项目目录中（例如 `src/code-review.js`）。
 2.  **依赖安装：**
     - `husky` (如果需要自动校验)。
     - `dotenv` (推荐，用于管理 API Key): `npm install dotenv --save-dev`。
