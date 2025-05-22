@@ -599,6 +599,23 @@ function displayResults(analysisResult, aiSummary) {
  */
 async function main() {
   // 处理命令行参数
+
+  // 打印Figlet风格的dt-cr标题
+  console.log(`${colors.green}
+==================================================
+
+  ██████╗ ████████╗          ██████╗ ██████╗
+  ██╔══██╗╚══██╔══╝          ██╔════╝██╔══██╗
+  ██║  ██║   ██║    ██████╗  ██║     ██████╔╝
+  ██║  ██║   ██║    ╚═════╝  ██║     ██╔══██╗
+  ██████╔╝   ██║             ╚██████╗██║  ██║
+  ╚═════╝    ╚═╝              ╚═════╝╚═╝  ╚═╝
+  
+  ${colors.bold}AI 代码审查工具 v${process.env.npm_package_version}${colors.reset}
+
+===================================================
+  `);
+
   const args = process.argv.slice(2);
   if (args.length > 0) {
     // 设置API Key
@@ -635,14 +652,7 @@ ${colors.bold}AI 代码审查工具${colors.reset}
     }
   }
 
-  console.log(`\n${'='.repeat(40)}`, '🚀 开始代码审查...', '='.repeat(40));
-
-  // 检查API Key是否已设置
-  if (!config.openRouter.apiKey) {
-    console.error(`${colors.red}❌ 错误: ${colors.reset}未设置API Key，请先运行以下命令设置:`);
-    console.log(`dt-cr --set-key YOUR_API_KEY`);
-    process.exit(1);
-  }
+  console.log(`\n${'='.repeat(40)}`, '🚀 开始代码审查', '='.repeat(40));
 
   const vcs = detectVCS();
   if (!vcs) {
@@ -650,9 +660,16 @@ ${colors.bold}AI 代码审查工具${colors.reset}
     process.exit(0);
   }
 
+  // 检查API Key是否已设置
+  if (!config.openRouter.apiKey) {
+    console.error(`\n${colors.red}❌ 错误: ${colors.reset}未设置API Key，请先运行以下命令设置:`);
+    console.log(`dt-cr --set-key YOUR_API_KEY`);
+    process.exit(1);
+  }
+
   const diff = getVCSDiff(vcs);
   if (!diff || diff.trim() === '') {
-    console.log(`${colors.yellow}⚠️ 警告: ${colors.reset}没有检测到代码变更。确保你的修改已经保存。`);
+    console.log(`\n${colors.yellow}⚠️ 警告: ${colors.reset}没有检测到代码变更。确保你的修改已经保存。`);
     process.exit(0);
   }
 
@@ -668,7 +685,7 @@ ${colors.bold}AI 代码审查工具${colors.reset}
 }
 
 main().catch((error) => {
-  console.error(`${colors.red}❌ 错误: ${colors.reset}程序执行失败:`, error);
+  console.error(`\n${colors.red}❌ 错误: ${colors.reset}程序执行失败:`, error);
   // 非阻塞退出
   process.exit(0);
 });
