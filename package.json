@@ -2,7 +2,7 @@
   "name": "dt-cr",
   "description": "AI 代码审查工具",
   "author": "Daotin",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "main": "dist/index.js",
   "type": "module",
   "bin": "dist/index.js",
