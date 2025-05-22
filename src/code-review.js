@@ -6,7 +6,7 @@ import { execSync } from 'child_process';
 import fetch from 'node-fetch';
 import os from 'os';
 import config from './review.config.js';
-import packageJson from '../package.json' assert { type: 'json' };
+import packageJson from '../package.json';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
