@@ -288,11 +288,37 @@ function filterIgnoredFiles(diff, gitignoreRules, vcs = 'git') {
   const filteredBlocks = diffBlocks.filter((block) => {
     if (!block.file) return true;
     if (shouldIgnoreFile(block.file, gitignoreRules)) {
-      console.log(`${colors.blue}信息: ${colors.reset}忽略文件: ${block.file}`);
       return false;
     }
     return true;
   });
+
+  // 打印文件过滤结果
+  console.log(`\n${colors.blue}信息:文件过滤结果：${colors.reset}`);
+
+  // 显示被忽略的文件
+  const ignoredFiles = diffBlocks.filter((block) => block.file && shouldIgnoreFile(block.file, gitignoreRules));
+  if (ignoredFiles.length > 0) {
+    console.log(`  ${colors.blue}x✔️❌ 忽略文件 (${ignoredFiles.length}):${colors.reset}`);
+    ignoredFiles.forEach((block) => {
+      console.log(`    - ${colors.cyan}${block.file}${colors.reset}`);
+    });
+  } else {
+    console.log(`  ${colors.green}✓ 无忽略文件${colors.reset}`);
+  }
+
+  // 显示参与分析的文件
+  if (filteredBlocks.length > 0) {
+    console.log(`  ${colors.green}✓ 分析文件 (${filteredBlocks.length}):${colors.reset}`);
+    filteredBlocks.forEach((block) => {
+      if (block.file) {
+        console.log(`    - ${colors.cyan}${block.file}${colors.reset}`);
+      }
+    });
+  } else {
+    console.log(`  ${colors.yellow}⚠️ 无分析文件${colors.reset}`);
+  }
+  console.log(''); // 空行分隔
 
   // 重新组合diff
   return filteredBlocks.map((block) => block.content).join('\n\n');
