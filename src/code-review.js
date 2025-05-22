@@ -6,6 +6,7 @@ import { execSync } from 'child_process';
 import fetch from 'node-fetch';
 import os from 'os';
 import config from './review.config.js';
+import packageJson from '../package.json' assert { type: 'json' };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -611,7 +612,7 @@ async function main() {
   ██████╔╝   ██║             ╚██████╗██║  ██║
   ╚═════╝    ╚═╝              ╚═════╝╚═╝  ╚═╝
   
-  ${colors.bold}AI 代码审查工具 v${process.env.npm_package_version}${colors.reset}
+  ${colors.bold}AI 代码审查工具 v${packageJson.version}${colors.reset}
 
 ===================================================
   `);
@@ -660,13 +661,6 @@ ${colors.bold}AI 代码审查工具${colors.reset}
     process.exit(0);
   }
 
-  // 检查API Key是否已设置
-  if (!config.openRouter.apiKey) {
-    console.error(`\n${colors.red}❌ 错误: ${colors.reset}未设置API Key，请先运行以下命令设置:`);
-    console.log(`dt-cr --set-key YOUR_API_KEY`);
-    process.exit(1);
-  }
-
   const diff = getVCSDiff(vcs);
   if (!diff || diff.trim() === '') {
     console.log(`\n${colors.yellow}⚠️ 警告: ${colors.reset}没有检测到代码变更。确保你的修改已经保存。`);
@@ -674,9 +668,24 @@ ${colors.bold}AI 代码审查工具${colors.reset}
   }
 
   const analysisResult = analyzeDiff(diff);
-  const prompt = buildPrompt(analysisResult);
-  // 调用OpenRouter API
-  const aiSummary = await callOpenRouter(prompt);
+
+  // 计算总问题数
+  const totalIssues = analysisResult.commentMatches.length + analysisResult.envIssues.length + analysisResult.businessDataSuspects.length;
+
+  let aiSummary = '未检测到代码变更或问题，跳过AI审查。'; // 初始化 AI 摘要
+
+  if (totalIssues > 0) {
+    // 检查API Key是否已设置，只有在需要调用AI时才检查
+    if (!config.openRouter.apiKey) {
+      console.error(`\n${colors.red}❌ 错误: ${colors.reset}未设置API Key，请先运行以下命令设置:`);
+      console.log(`dt-cr --set-key YOUR_API_KEY`);
+      process.exit(1);
+    }
+
+    const prompt = buildPrompt(analysisResult);
+    // 调用OpenRouter API
+    aiSummary = await callOpenRouter(prompt);
+  }
 
   displayResults(analysisResult, aiSummary);
 
