@@ -6,10 +6,18 @@ import { execSync } from 'child_process';
 import fetch from 'node-fetch';
 import os from 'os';
 import config from './review.config.js';
-import packageJson from '../package.json';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+let pkg = {};
+try {
+  const pkgPath = path.join(__dirname, '../package.json');
+  const pkgContent = fs.readFileSync(pkgPath, 'utf8');
+  pkg = JSON.parse(pkgContent);
+} catch (error) {
+  console.error(`${colors.red}错误: ${colors.reset}读取 package.json 失败:`, error.message);
+}
 
 // ANSI 颜色代码
 const colors = {
@@ -181,9 +189,10 @@ function getVCSDiff(vcs) {
  * 从diff中过滤掉应该被忽略的文件
  * @param {string} diff diff内容
  * @param {string[]} gitignoreRules gitignore规则
+ * @param {string} vcs 版本控制系统类型 ('git' 或 'svn')
  * @returns {string} 过滤后的diff
  */
-function filterIgnoredFiles(diff, gitignoreRules) {
+function filterIgnoredFiles(diff, gitignoreRules, vcs = 'git') {
   if (!diff || diff.trim() === '') {
     return diff;
   }
@@ -196,39 +205,74 @@ function filterIgnoredFiles(diff, gitignoreRules) {
   // 按行分割diff
   const lines = diff.split('\n');
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  // 根据VCS类型选择不同的解析策略
+  if (vcs === 'git') {
+    // Git差异解析
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
 
-    // 检测新文件头
-    if (line.startsWith('diff --git')) {
-      // 保存之前的块
-      if (currentBlock.length > 0 && currentFile) {
-        diffBlocks.push({
-          file: currentFile,
-          content: currentBlock.join('\n'),
-        });
+      // 检测新文件头
+      if (line.startsWith('diff --git')) {
+        // 保存之前的块
+        if (currentBlock.length > 0 && currentFile) {
+          diffBlocks.push({
+            file: currentFile,
+            content: currentBlock.join('\n'),
+          });
+        }
+
+        // 开始新块
+        currentBlock = [line];
+
+        // 提取文件名
+        const match = line.match(/diff --git a\/(.*) b\/(.*)/);
+        if (match) {
+          currentFile = match[1];
+        } else {
+          currentFile = null;
+        }
+
+        continue;
       }
 
-      // 开始新块
-      currentBlock = [line];
-
-      // 提取文件名
-      const match = line.match(/diff --git a\/(.*) b\/(.*)/);
-      if (match) {
-        currentFile = match[1];
+      // 将当前行添加到当前块
+      if (currentBlock.length > 0) {
+        currentBlock.push(line);
       } else {
-        currentFile = null;
+        // 如果没有diff头就开始了，先创建一个块
+        currentBlock = [line];
+      }
+    }
+  } else if (vcs === 'svn') {
+    // SVN差异解析
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // SVN中新文件块通常以"Index: "开头
+      if (line.startsWith('Index: ')) {
+        // 保存之前的块
+        if (currentBlock.length > 0 && currentFile) {
+          diffBlocks.push({
+            file: currentFile,
+            content: currentBlock.join('\n'),
+          });
+        }
+
+        // 开始新块
+        currentBlock = [line];
+
+        // 提取文件名 (在"Index: "之后)
+        currentFile = line.substring(7).trim();
+        continue;
       }
 
-      continue;
-    }
-
-    // 将当前行添加到当前块
-    if (currentBlock.length > 0) {
-      currentBlock.push(line);
-    } else {
-      // 如果没有diff头就开始了，先创建一个块
-      currentBlock = [line];
+      // 将当前行添加到当前块
+      if (currentBlock.length > 0) {
+        currentBlock.push(line);
+      } else {
+        // 如果没有Index头就开始了，先创建一个块
+        currentBlock = [line];
+      }
     }
   }
 
@@ -257,9 +301,10 @@ function filterIgnoredFiles(diff, gitignoreRules) {
 /**
  * 解析diff内容，获取相关信息
  * @param {string} diff diff内容
+ * @param {string} vcs 版本控制系统类型 ('git' 或 'svn')
  * @returns {Object} 解析结果
  */
-function analyzeDiff(diff) {
+function analyzeDiff(diff, vcs = 'git') {
   const commentMatches = [];
   const envIssues = [];
   const businessDataSuspects = []; // 所有可疑的业务敏感数据
@@ -276,7 +321,7 @@ function analyzeDiff(diff) {
   }
 
   // 首先过滤掉被忽略的文件
-  const filteredDiff = filterIgnoredFiles(diff, gitignoreRules);
+  const filteredDiff = filterIgnoredFiles(diff, gitignoreRules, vcs);
 
   if (!filteredDiff || filteredDiff.trim() === '') {
     console.warn(`${colors.yellow}警告: ${colors.reset}过滤后没有变更内容`);
@@ -612,7 +657,7 @@ async function main() {
   ██████╔╝   ██║             ╚██████╗██║  ██║
   ╚═════╝    ╚═╝              ╚═════╝╚═╝  ╚═╝
   
-  ${colors.bold}AI 代码审查工具 v${packageJson.version}${colors.reset}
+  ${colors.bold}AI 代码审查工具 v${pkg.version}${colors.reset}
 
 ===================================================
   `);
@@ -667,7 +712,7 @@ ${colors.bold}AI 代码审查工具${colors.reset}
     process.exit(0);
   }
 
-  const analysisResult = analyzeDiff(diff);
+  const analysisResult = analyzeDiff(diff, vcs);
 
   // 计算总问题数
   const totalIssues = analysisResult.commentMatches.length + analysisResult.envIssues.length + analysisResult.businessDataSuspects.length;
