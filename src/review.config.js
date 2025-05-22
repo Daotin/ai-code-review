@@ -3,27 +3,33 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
+export let apiConfig = {
+  apiKey: '',
+  model: '',
+};
+
 // 获取API Key
-function getApiKey() {
+function getApiConfig() {
   try {
     const configPath = path.join(os.homedir(), '.dt-cr-config.json');
     if (fs.existsSync(configPath)) {
       const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      return config.apiKey || '';
+      apiConfig.apiKey = config.apiKey || '';
+      apiConfig.model = config.model || 'deepseek/deepseek-chat-v3-0324:free'; // XXX 默认模型
     }
   } catch (error) {
     console.error('读取配置文件失败:', error.message);
   }
-  return '';
+  return apiConfig;
 }
 
 export default {
   // 需要提取的注释标记
   commentKeywords: [
-    { pattern: /TODO\s*:(.*)/gi, type: 'TODO' },
-    { pattern: /FIXME\s*:(.*)/gi, type: 'FIXME' },
-    { pattern: /BUG\s*:(.*)/gi, type: 'BUG' },
-    { pattern: /XXX\s*:(.*)/gi, type: 'XXX' },
+    { pattern: /TODO\s*(.*)/gi, type: 'TODO' },
+    { pattern: /FIXME\s*(.*)/gi, type: 'FIXME' },
+    { pattern: /BUG\s*(.*)/gi, type: 'BUG' },
+    { pattern: /XXX\s*(.*)/gi, type: 'XXX' },
   ],
 
   // 环境相关问题检测规则
@@ -77,8 +83,8 @@ export default {
 
   // OpenRouter API设置
   openRouter: {
-    model: 'deepseek/deepseek-chat-v3-0324:free',
+    model: getApiConfig().model,
     // model: 'qwen/qwen3-235b-a22b:free',
-    apiKey: getApiKey(),
+    apiKey: getApiConfig().apiKey,
   },
 };

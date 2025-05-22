@@ -6,18 +6,10 @@ import { execSync } from 'child_process';
 import fetch from 'node-fetch';
 import os from 'os';
 import config from './review.config.js';
+import { apiConfig } from './review.config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-let pkg = {};
-try {
-  const pkgPath = path.join(__dirname, '../package.json');
-  const pkgContent = fs.readFileSync(pkgPath, 'utf8');
-  pkg = JSON.parse(pkgContent);
-} catch (error) {
-  console.error(`${colors.red}错误: ${colors.reset}读取 package.json 失败:`, error.message);
-}
 
 // ANSI 颜色代码
 const colors = {
@@ -30,6 +22,15 @@ const colors = {
   cyan: '\x1b[36m',
   bold: '\x1b[1m',
 };
+
+let pkg = {};
+try {
+  const pkgPath = path.join(__dirname, '../package.json');
+  const pkgContent = fs.readFileSync(pkgPath, 'utf8');
+  pkg = JSON.parse(pkgContent);
+} catch (error) {
+  console.error(`${colors.red}错误: ${colors.reset}读取 package.json 失败:`, error.message);
+}
 
 /**
  * 设置API Key到配置文件
@@ -294,26 +295,30 @@ function filterIgnoredFiles(diff, gitignoreRules, vcs = 'git') {
   });
 
   // 打印文件过滤结果
-  console.log(`\n${colors.blue}信息:文件过滤结果：${colors.reset}`);
+  console.log(`\n${colors.blue}文件过滤结果：${colors.reset}`);
 
-  // 显示被忽略的文件
+  // 显示被忽略的文件 - 进行去重处理
   const ignoredFiles = diffBlocks.filter((block) => block.file && shouldIgnoreFile(block.file, gitignoreRules));
-  if (ignoredFiles.length > 0) {
-    console.log(`  ${colors.blue}◌ 忽略文件 (${ignoredFiles.length}):${colors.reset}`);
-    ignoredFiles.forEach((block) => {
-      console.log(`    - ${colors.cyan}${block.file}${colors.reset}`);
+  // 使用Set对文件名进行去重
+  const uniqueIgnoredFiles = [...new Set(ignoredFiles.map((block) => block.file))];
+
+  if (uniqueIgnoredFiles.length > 0) {
+    console.log(`  ${colors.blue}◌ 忽略文件 (${uniqueIgnoredFiles.length}):${colors.reset}`);
+    uniqueIgnoredFiles.forEach((file) => {
+      console.log(`    - ${colors.cyan}${file}${colors.reset}`);
     });
   } else {
     console.log(`  ${colors.green}✓ 无忽略文件${colors.reset}`);
   }
 
-  // 显示参与分析的文件
-  if (filteredBlocks.length > 0) {
-    console.log(`  ${colors.green}✓ 分析文件 (${filteredBlocks.length}):${colors.reset}`);
-    filteredBlocks.forEach((block) => {
-      if (block.file) {
-        console.log(`    - ${colors.cyan}${block.file}${colors.reset}`);
-      }
+  // 显示参与分析的文件 - 进行去重处理
+  // 使用Set对文件名进行去重
+  const uniqueAnalyzedFiles = [...new Set(filteredBlocks.filter((block) => block.file).map((block) => block.file))];
+
+  if (uniqueAnalyzedFiles.length > 0) {
+    console.log(`  ${colors.green}✓ 分析文件 (${uniqueAnalyzedFiles.length}):${colors.reset}`);
+    uniqueAnalyzedFiles.forEach((file) => {
+      console.log(`    - ${colors.cyan}${file}${colors.reset}`);
     });
   } else {
     console.log(`  ${colors.yellow}⚠️ 无分析文件${colors.reset}`);
@@ -400,6 +405,8 @@ function analyzeDiff(diff, vcs = 'git') {
             text: match[1]?.trim() || '未提供描述',
           });
         }
+        // 重置正则表达式内部状态
+        keyword.pattern.lastIndex = 0;
       }
 
       // 检查环境特定问题
@@ -443,10 +450,43 @@ function analyzeDiff(diff, vcs = 'git') {
     }
   }
 
+  // Deduplicate commentMatches
+  const uniqueCommentMatches = [];
+  const seenCommentKeys = new Set();
+  for (const cm of commentMatches) {
+    const key = `${cm.file}:${cm.line}:${cm.type}:${cm.text}`;
+    if (!seenCommentKeys.has(key)) {
+      uniqueCommentMatches.push(cm);
+      seenCommentKeys.add(key);
+    }
+  }
+
+  // Deduplicate envIssues
+  const uniqueEnvIssues = [];
+  const seenEnvIssueKeys = new Set();
+  for (const ei of envIssues) {
+    const key = `${ei.file}:${ei.line}:${ei.message}`;
+    if (!seenEnvIssueKeys.has(key)) {
+      uniqueEnvIssues.push(ei);
+      seenEnvIssueKeys.add(key);
+    }
+  }
+
+  // Deduplicate businessDataSuspects
+  const uniqueBusinessDataSuspects = [];
+  const seenBusinessDataKeys = new Set();
+  for (const bd of businessDataSuspects) {
+    const key = `${bd.file}:${bd.line}:${bd.category}:${bd.match}`;
+    if (!seenBusinessDataKeys.has(key)) {
+      uniqueBusinessDataSuspects.push(bd);
+      seenBusinessDataKeys.add(key);
+    }
+  }
+
   return {
-    commentMatches,
-    envIssues,
-    businessDataSuspects,
+    commentMatches: uniqueCommentMatches,
+    envIssues: uniqueEnvIssues,
+    businessDataSuspects: uniqueBusinessDataSuspects,
     originalDiff: filteredDiff,
   };
 }
@@ -482,32 +522,80 @@ function buildPrompt(analysisResult) {
     diffContent = '没有发现代码变更';
   }
 
-  return `你是一位专业且经验丰富的代码审查专家，请对以下代码变更（diff）进行全面分析，并提供简洁、结构清晰的代码审查意见。
+  return `
+## ROLE（角色定义）
+你是一位资深的代码评审专家，具备以下专业能力：
+- 10年以上的软件开发和代码评审经验
+- 熟悉主流编程语言和框架的最佳实践
+- 具备敏锐的安全意识和业务风险识别能力
+- 擅长快速定位关键问题并给出实用的改进建议
 
-请严格遵循以下要求：
-- 输出语言：中文
-- 输出格式：TXT文本格式
-- 风格：简洁明了、重点突出，排版清晰，便于开发者快速理解和修复问题
-- 不要逐行重复解释 diff，而是提炼出关键问题、风险和优化建议
+## TASK（核心任务）
+基于提供的代码变更diff和辅助分析信息，进行全面的代码评审，重点关注：
 
-【输入信息】  
-代码变更（diff）：  
+### 技术层面评审
+- **代码质量**：可读性、可维护性、代码规范遵循度
+- **功能实现**：逻辑正确性、边界条件处理、异常处理
+- **性能优化**：算法效率、资源使用、潜在性能瓶颈
+- **安全漏洞**：输入验证、权限控制、数据加密
+
+### 业务风险评审（重点关注）
+- **生产环境适用性**：是否包含测试数据、调试代码、开发环境配置
+- **敏感数据检查**：密码、API密钥、个人信息、交易金额、业务机密数据
+- **环境耦合风险**：硬编码的URL、路径、数据库连接信息
+- **发布风险评估**：是否存在影响生产稳定性的潜在问题
+
+## FORMAT（输出格式）
+
+### 评审结果结构
+"""
+🔍 **代码评审报告**
+
+【🚨 阻塞性问题】（必须修复才能合并）
+- 问题1：具体描述 + 风险等级 + 修复建议
+- 问题2：具体描述 + 风险等级 + 修复建议
+
+【⚠️ 重要问题】（强烈建议修复）
+- 问题1：具体描述 + 影响分析 + 优化建议
+- 问题2：具体描述 + 影响分析 + 优化建议
+
+【💡 优化建议】（可选修复）
+- 建议1：具体描述 + 预期收益
+- 建议2：具体描述 + 预期收益
+
+【✅ 生产发布评估】
+□ 生产环境安全 - 无测试数据/调试代码
+□ 敏感信息安全 - 无硬编码敏感数据
+□ 配置环境解耦 - 无环境特定硬编码
+□ 功能逻辑完整 - 核心功能正常
+
+【📋 整改清单】
+1. [ ] 必须修复项1
+2. [ ] 必须修复项2
+3. [ ] 建议修复项1
+"""
+
+### 输出要求
+- **语言**：中文
+- **格式**：结构化文本，使用emoji和符号增强可读性
+- **风格**：简洁明了，突出重点，避免冗余描述
+- **长度**：控制在500-800字，确保快速阅读
+
+---
+
+## 输入信息处理
+
+**代码变更（diff）：**
 ${diffContent}
 
-辅助信息（可参考，但不要依赖）：
+**辅助分析信息：**
 - 识别的注释标记：${commentsList}
 - 潜在环境/配置问题：${issuesList}  
 - 涉及的业务敏感数据：${businessDataList}
 
-【输出要求】
-请提供结构化的审查反馈，内容包括但不限于以下方面：
-1. **关键问题识别**：指出代码中的主要问题与潜在风险（如逻辑错误、遗漏、代码异味等）
-2. **环境与配置风险**：判断是否存在配置错误、环境耦合或未考虑部署环境差异的问题
-3. **敏感信息与硬编码检查**：评估是否存在敏感数据泄露风险或不应出现在生产环境中的硬编码值
-4. **改进建议**：提出具体、可操作的优化建议
-5. **合并前必须解决的问题**：清晰列出阻止代码合并的关键问题
+---
 
-请确保你的审查总结结构清晰，便于快速审阅与跟踪整改。
+**请基于以上要求进行代码评审，确保输出的评审意见专业、实用且便于执行。**
 `;
 }
 
@@ -657,11 +745,13 @@ function displayResults(analysisResult, aiSummary) {
 
   // 如果没有发现任何问题
   if (totalIssues === 0) {
-    console.log(`\n${colors.green}✓ 未发现任何问题${colors.reset}`);
+    console.log(`\n${colors.green}✓ 未发现任何预制问题${colors.reset}`);
   }
 
   // AI 审查意见
   console.log(`\n${'='.repeat(40)}`, '🤖 AI代码审查意见', '='.repeat(40));
+  // TODO 提示使用模型
+  console.log(`${colors.blue}使用模型：${apiConfig.model}${colors.reset}`);
   console.log(aiSummary);
 }
 
@@ -754,7 +844,8 @@ ${colors.bold}AI 代码审查工具${colors.reset}
 
     const prompt = buildPrompt(analysisResult);
     // 调用OpenRouter API
-    aiSummary = await callOpenRouter(prompt);
+    // aiSummary = await callOpenRouter(prompt);
+    aiSummary = 'AI审查意见';
   }
 
   displayResults(analysisResult, aiSummary);
