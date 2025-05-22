@@ -6,7 +6,7 @@ import os from 'os';
 // 获取API Key
 function getApiKey() {
   try {
-    const configPath = path.join(os.homedir(), '.ai-cr-config.json');
+    const configPath = path.join(os.homedir(), '.dt-cr-config.json');
     if (fs.existsSync(configPath)) {
       const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
       return config.apiKey || '';

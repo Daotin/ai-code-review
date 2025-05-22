@@ -16,10 +16,10 @@
 
 ```bash
 # 不安装
-npx @fe-ai-demo/ai-code-review
+npx dt-cr
 
 # 全局安装
-npm install -g @fe-ai-demo/ai-code-review
+npm install -g dt-cr
 ```
 
 ## 设置 API Key
@@ -28,13 +28,13 @@ npm install -g @fe-ai-demo/ai-code-review
 
 ```bash
 # 不安装的情况
-npx @fe-ai-demo/ai-code-review --set-key YOUR_API_KEY
+npx dt-cr --set-key YOUR_API_KEY
 
 # 全局安装的情况
-ai-cr --set-key YOUR_API_KEY
+dt-cr --set-key YOUR_API_KEY
 ```
 
-API Key 将安全保存在用户主目录下的 `.ai-cr-config.json` 文件中，无需重复设置。
+API Key 将安全保存在用户主目录下的 `.dt-cr-config.json` 文件中，无需重复设置。
 
 ## 使用方法
 
@@ -42,21 +42,21 @@ API Key 将安全保存在用户主目录下的 `.ai-cr-config.json` 文件中�
 
 ```bash
 # 不安装的情况，直接运行
-npx @fe-ai-demo/ai-code-review
+npx dt-cr
 
 # 全局安装的情况
-ai-cr
+dt-cr
 
 # 或添加到 package.json 脚本
 # "scripts": {
-#   "review": "ai-cr"
+#   "review": "dt-cr"
 # }
 ```
 
 ### 显示帮助信息
 
 ```bash
-ai-cr --help
+dt-cr --help
 ```
 
 ### 本地开发
