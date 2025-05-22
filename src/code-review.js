@@ -750,7 +750,6 @@ function displayResults(analysisResult, aiSummary) {
 
   // AI 审查意见
   console.log(`\n${'='.repeat(40)}`, '🤖 AI代码审查意见', '='.repeat(40));
-  // TODO 提示使用模型
   console.log(`${colors.blue}使用模型：${apiConfig.model}${colors.reset}`);
   console.log(aiSummary);
 }
@@ -834,19 +833,15 @@ ${colors.bold}AI 代码审查工具${colors.reset}
 
   let aiSummary = '未检测到代码变更或问题，跳过AI审查。'; // 初始化 AI 摘要
 
-  if (totalIssues > 0) {
-    // 检查API Key是否已设置，只有在需要调用AI时才检查
-    if (!config.openRouter.apiKey) {
-      console.error(`\n${colors.red}❌ 错误: ${colors.reset}未设置API Key，请先运行以下命令设置:`);
-      console.log(`dt-cr --set-key YOUR_API_KEY`);
-      process.exit(1);
-    }
-
-    const prompt = buildPrompt(analysisResult);
-    // 调用OpenRouter API
-    // aiSummary = await callOpenRouter(prompt);
-    aiSummary = 'AI审查意见';
+  // 检查API Key是否已设置，只有在需要调用AI时才检查
+  if (!config.openRouter.apiKey) {
+    console.error(`\n${colors.red}❌ 错误: ${colors.reset}未设置API Key，请先运行以下命令设置:`);
+    console.log(`dt-cr --set-key YOUR_API_KEY`);
+    process.exit(1);
   }
+
+  const prompt = buildPrompt(analysisResult);
+  aiSummary = await callOpenRouter(prompt);
 
   displayResults(analysisResult, aiSummary);
 
