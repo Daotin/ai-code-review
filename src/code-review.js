@@ -299,7 +299,7 @@ function filterIgnoredFiles(diff, gitignoreRules, vcs = 'git') {
   // 显示被忽略的文件
   const ignoredFiles = diffBlocks.filter((block) => block.file && shouldIgnoreFile(block.file, gitignoreRules));
   if (ignoredFiles.length > 0) {
-    console.log(`  ${colors.blue}x✔️❌ 忽略文件 (${ignoredFiles.length}):${colors.reset}`);
+    console.log(`  ${colors.blue}◌ 忽略文件 (${ignoredFiles.length}):${colors.reset}`);
     ignoredFiles.forEach((block) => {
       console.log(`    - ${colors.cyan}${block.file}${colors.reset}`);
     });
@@ -621,8 +621,7 @@ function displayResults(analysisResult, aiSummary) {
     const sortedCategories = Object.keys(dataByCategory).sort();
     for (const category of sortedCategories) {
       const items = dataByCategory[category];
-      const emoji = getEmojiForCategory(category);
-      console.log(`  ${colors.bold}${emoji} ${category} (${items.length}项):${colors.reset}`);
+      console.log(`  ${colors.bold} ${category} (${items.length}项):${colors.reset}`);
 
       // 按文件分组
       const itemsByFile = {};
