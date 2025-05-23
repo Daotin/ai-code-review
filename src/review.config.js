@@ -119,6 +119,7 @@ export default {
     '__mocks__/',
     'node_modules/',
     'dist/',
+    'docs/',
     'build/',
     'coverage/',
     'package.json',
@@ -133,6 +134,8 @@ export default {
     '*.min.js',
     '*.min.css',
     '*.map',
+    '*.log',
+    '*.md',
   ],
 
   // OpenRouter API设置
