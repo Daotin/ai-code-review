@@ -524,9 +524,9 @@ function buildPrompt(analysisResult) {
 
   return `
 ## ROLE（角色定义）
-你是一位资深的代码评审专家，具备以下专业能力：
+你是一位全栈资深的代码评审专家，具备以下专业能力：
 - 10年以上的软件开发和代码评审经验
-- 熟悉主流编程语言和框架的最佳实践
+- 熟悉主流前后端编程语言和框架的最佳实践
 - 具备敏锐的安全意识和业务风险识别能力
 - 擅长快速定位关键问题并给出实用的改进建议
 
@@ -549,35 +549,35 @@ function buildPrompt(analysisResult) {
 
 ### 评审结果结构
 """
-🔍 **代码评审报告**
+🔍 代码评审报告
 
-【🚨 阻塞性问题】（必须修复才能合并）
-- 问题1：具体描述 + 风险等级 + 修复建议
-- 问题2：具体描述 + 风险等级 + 修复建议
+【🚨 阻塞性问题】
+1. 具体描述 + 风险等级 + 修复建议
+2. 具体描述 + 风险等级 + 修复建议
 
-【⚠️ 重要问题】（强烈建议修复）
-- 问题1：具体描述 + 影响分析 + 优化建议
-- 问题2：具体描述 + 影响分析 + 优化建议
+【⚠️ 重要问题】
+1. 具体描述 + 影响分析 + 优化建议
+2. 具体描述 + 影响分析 + 优化建议
 
-【💡 优化建议】（可选修复）
-- 建议1：具体描述 + 预期收益
-- 建议2：具体描述 + 预期收益
+【💡 优化建议】
+1. 具体描述 + 预期收益
+2. 具体描述 + 预期收益
 
 【✅ 生产发布评估】
-□ 生产环境安全 - 无测试数据/调试代码
-□ 敏感信息安全 - 无硬编码敏感数据
-□ 配置环境解耦 - 无环境特定硬编码
-□ 功能逻辑完整 - 核心功能正常
+1. 生产环境安全 - 无测试数据/调试代码
+2. 敏感信息安全 - 无硬编码敏感数据
+3. 配置环境解耦 - 无环境特定硬编码
+4. 功能逻辑完整 - 核心功能正常
 
 【📋 整改清单】
-1. [ ] 必须修复项1
-2. [ ] 必须修复项2
-3. [ ] 建议修复项1
+1. 问题1
+2. 问题2
+3. 问题3
 """
 
 ### 输出要求
 - **语言**：中文
-- **格式**：结构化文本，使用emoji和符号增强可读性
+- **格式**：TXT结构化文本格式，使用emoji和符号增强可读性
 - **风格**：简洁明了，突出重点，避免冗余描述
 - **长度**：控制在500-800字，确保快速阅读
 
@@ -589,7 +589,7 @@ function buildPrompt(analysisResult) {
 ${diffContent}
 
 **辅助分析信息：**
-- 识别的注释标记：${commentsList}
+- 识别的代码标记：${commentsList}
 - 潜在环境/配置问题：${issuesList}  
 - 涉及的业务敏感数据：${businessDataList}
 
@@ -611,6 +611,7 @@ async function callOpenRouter(promptContent) {
   }
 
   console.log(`${colors.blue}信息: ${colors.reset}正在调用AI进行代码审查，请稍候...`);
+  console.log(`${colors.blue}使用模型：${config.openRouter.model}${colors.reset}`);
 
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -750,7 +751,6 @@ function displayResults(analysisResult, aiSummary) {
 
   // AI 审查意见
   console.log(`\n${'='.repeat(40)}`, '🤖 AI代码审查意见', '='.repeat(40));
-  console.log(`${colors.blue}使用模型：${apiConfig.model}${colors.reset}`);
   console.log(aiSummary);
 }
 
@@ -842,6 +842,7 @@ ${colors.bold}AI 代码审查工具${colors.reset}
 
   const prompt = buildPrompt(analysisResult);
   aiSummary = await callOpenRouter(prompt);
+  // aiSummary = 'AI 审查意见';
 
   displayResults(analysisResult, aiSummary);
 
